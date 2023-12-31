@@ -1,10 +1,25 @@
 // require("dotenv").config({path:"./.env"})
 import dotenv from "dotenv";
 import connectDB from "./db/index.js";
+import colors from "colors";
+import { app } from "./app.js";
 
+//dotenv config
 dotenv.config({ path: "./.env" });
+//call connectDB()
+connectDB()
+  .then(() => {
+    app.listen(process.env.PORT || 7071, () => {
+      console.log(
+        `\n◔ SERVER IS RUNNING ON PORT: ${process.env.PORT}`.bgBlue.white
+      );
+    });
+  })
+  .catch((err) => {
+    console.log("\nMONGODB CONNECTION FAILED!!!".bgRed.white, err);
+  });
 
-connectDB();
+  
 
 /*
 import mongooge from "mongoose";
