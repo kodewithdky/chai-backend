@@ -9,13 +9,12 @@ const userSchema = new Schema(
       required: true,
       trim: true,
     },
-    username: {
+    email: {
       type: String,
       required: true,
       unique: true,
       lowercase: true,
       trim: true,
-      index: true,
     },
     phone: {
       type: String,
@@ -23,13 +22,6 @@ const userSchema = new Schema(
       min: [10, "Phone number should contain at least ten digits!"],
       max: [10, "Phone number should contain maximum ten digits!"],
       unique: true,
-      trim: true,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
       trim: true,
     },
     avatar: {
