@@ -1,7 +1,10 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import {
+  uploadOnCloudinary,
+  deleteFromCloudinary,
+} from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 
@@ -31,9 +34,13 @@ const options = {
 //register user
 const registerUser = asyncHandler(async (req, res) => {
   //destructure request body value
-  const { name, email, phone, password } = req.body;
+  const { name, username, email, phone, password } = req.body;
   //vallidation -not empty
-  if ([name, email, phone, password].some((field) => field?.trim() === "")) {
+  if (
+    [name, username, email, phone, password].some(
+      (field) => field?.trim() === ""
+    )
+  ) {
     throw new ApiError(400, "All fields are required!");
   }
   //geting images from request file -using multer
@@ -53,7 +60,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   //check existing user
   const existedUser = await User.findOne({
-    $or: [{ email }, { phone }],
+    $or: [{ email }, { phone }, { username }],
   });
   if (existedUser) {
     throw new ApiError(409, "User already exist!");
@@ -68,6 +75,7 @@ const registerUser = asyncHandler(async (req, res) => {
   //create new user
   const user = await User.create({
     name,
+    username,
     email,
     phone,
     avatar: avatar.url,
@@ -90,13 +98,15 @@ const registerUser = asyncHandler(async (req, res) => {
 //login user
 const loginUser = asyncHandler(async (req, res) => {
   // fetch data from body
-  const { email, phone, password } = req.body;
+  const { email, phone,username, password } = req.body;
   //validation
-  if (!(email || phone)) {
+  if (!(email || phone || username)) {
     throw new ApiError(400, "Email or Phone is required!");
   }
   //find user
-  const user = await User.findOne({ $or: [{ email }, { phone }] });
+  const user = await User.findOne({
+    $or: [{ email }, { phone }, { username }],
+  });
   if (!user) {
     throw new ApiError(404, "User does not exist!");
   }
@@ -190,4 +200,112 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+//change user password
+const changeUserPassword = asyncHandler(async (req, res) => {
+  //fetching data from body
+  const { oldPassword, newPassword } = req.body;
+  //find user
+  const user = await User.findById(req.user?._id);
+  //check password
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+  if (!isPasswordCorrect) {
+    throw new ApiError(400, "Invalid credentils!");
+  }
+  // change password
+  user.password = newPassword;
+  await user.save({ validateBeforeSave: false });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password change successfully!"));
+});
+
+//fetch current user
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(200, req.user, "User fetched successfully"));
+});
+
+//update account
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  //fetching data from body
+  const { name, username, email, phone } = req.body;
+  //vallidation -not empty
+  if ([name, username, email, phone].some((field) => field?.trim() === "")) {
+    throw new ApiError(400, "All fields are required!");
+  }
+  //update user details
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        name,
+        username,
+        email,
+        phone,
+      },
+    },
+    { new: true }
+  ).select("-password");
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Account details updated successfully!"));
+});
+
+//update avatar
+const updateUserAvatar = asyncHandler(async (req, res) => {
+  //fetch image from req.file using multer
+  const avatarLocalPath = req.file?.path;
+  if (!avatarLocalPath) {
+    throw new ApiError(400, "Avatar file is missing!");
+  }
+  //upload image on cloudinary
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+  if (!avatar.url) {
+    throw new ApiError(400, "Error while uploading avatar!");
+  }
+  //update avatar
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    { $set: { avatar: avatar.user } },
+    { new: true }
+  ).select("-password");
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Avatar updated successfully!"));
+});
+
+//update coverImage
+const updateCoverImage = asyncHandler(async (req, res) => {
+  //fetch cover image from req.file using multer
+  const coverImageLocalPath = req.file?.path;
+  if (!coverImageLocalPath) {
+    throw new ApiError(400, "Avatar file is missing!");
+  }
+  //upload conver image on cloudinary
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+  if (!coverImage.url) {
+    throw new ApiError(400, "Error while uploading avatar!");
+  }
+  //update conver image
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    { $set: { coverImage: coverImage.user } },
+    { new: true }
+  ).select("-password");
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Cover image updated successfully!"));
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  changeUserPassword,
+  getCurrentUser,
+  updateAccountDetails,
+  updateUserAvatar,
+  updateCoverImage,
+};

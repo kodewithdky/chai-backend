@@ -9,6 +9,13 @@ const userSchema = new Schema(
       required: true,
       trim: true,
     },
+    username: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
     email: {
       type: String,
       required: true,
@@ -64,6 +71,7 @@ userSchema.methods.generateAccessToken = function () {
     {
       _id: this._id,
       name: this.name,
+      username: this.username,
       email: this.email,
       phone: this.phone,
     },
